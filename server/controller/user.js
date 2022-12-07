@@ -83,9 +83,7 @@ module.exports = {
         }
     },
     async signup(req, res) {
-        //res.status(201).json(req.body);
-        //add new user and return 201
-        const salt = await bcrypt.genSalt(10);
+        try {const salt = await bcrypt.genSalt(10);
         var usr = {
             name: req.body.name,
             email: req.body.email,
@@ -93,7 +91,10 @@ module.exports = {
             password: await bcrypt.hash(req.body.password, salt)
         };
         created_user = await User.create(usr);
-        res.status(201).json(created_user);
+        res.status(201).json(created_user);}
+        catch(err){
+            res.status(400).json({err});
+        }
     },
 
     async login(req, res) {
