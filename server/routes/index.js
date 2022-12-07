@@ -22,6 +22,8 @@ module.exports = (app) => {
 
     app.post('/api/invoice/create',invoiceController.createInvoice);
 
+    app.get('/api/invoice/:invoiceId/resolve', invoiceController.resolveDues)
+
     app.post('/api/invoice/update',invoiceController.update);
 
     app.post('/api/user/signup',userController.signup);
@@ -33,6 +35,8 @@ module.exports = (app) => {
     app.put('/api/user/',userController.update);
 
     app.post('/api/book/create',bookController.createBook);
+
+    app.get('/api/user/books',bookController.getAllBooksOfUser)
 
     app.get('/api/book/:bookId',bookController.getBook);
 

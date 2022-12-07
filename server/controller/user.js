@@ -1,13 +1,31 @@
 const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
 const User = require('../models').User;
-
+const Invoice = require('../models').Invoice;
 const main = async (req, res) => {
     try {
         let token = req.headers['authorization'];
         console.log(token, req.headers['authorization'])
         let decodedUser = jwt.verify(token, "mysecret");
         console.log({decodedUser})
+
+        const dueNotClearedInvoices = await Invoice.findAll({
+            where: {
+                UserId: decodedUser.id,
+                dueCleared: false
+            }
+        });
+        const dueDates = dueNotClearedInvoices.map((invoice)=> invoice.dueDate);
+        console.log({dueDates})
+        for(let i=0;i<dueDates.length;i++){
+            if(dueDates[i].getTime()< (new Date()).getTime()){
+                const user = await User.find({id: decodedUser.id})
+                user.update({ freezed: true });
+                console.log({user})
+                break;
+            }
+        }
+
         return decodedUser;
     }
     catch (err) {

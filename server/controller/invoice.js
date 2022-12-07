@@ -7,11 +7,13 @@ module.exports = {
 
     async getAllInvoicesOfUser(req, res) {
         try {
-            const userAuth = await userAuthFun(req,res);
+            const userAuth = await userAuthFun(req, res);
 
             if (userAuth) {
-                const invoiceCollection = await Invoice.find({
-                    userId: userAuth.id
+                const invoiceCollection = await Invoice.findAll({
+                    where:{
+                        UserId: userAuth.id
+                    }
                 })
 
                 res.status(201).send(invoiceCollection);
@@ -28,14 +30,14 @@ module.exports = {
     },
     async getAllInvoicesOfBook(req, res) {
         try {
-            const user = await userAuthFun(req,res);
+            const user = await userAuthFun(req, res);
             const bookCollection = await Book.find({
                 id: req.params.bookId
             });
 
             if (bookCollection) {
                 const invoiceCollection = await Invoice.find({
-                    bookId: req.params.bookId
+                    BookId: req.params.bookId
                 })
 
                 res.status(201).send(invoiceCollection);
@@ -54,27 +56,32 @@ module.exports = {
     async createInvoice(req, res) {
 
         try {
-            const user = await userAuthFun(req,res);
-            const invoices = await Invoice.find({
-                userId: user.id,
-                dueCleared: false
-            })
+            const user = await userAuthFun(req, res);
+            const userObj = await User.find({id: user.id})
+            console.log({userObj})
+            if (userObj.freezed) {
 
-            if(invoices.length){
-                
-                res.status(403).send("Please clear the remaining due in order to rent other books!")
+                res.status(403).send("Your account has been freezed due to passing the due date. Please clear your dues to rent a book again!");
+                return
             }
 
             const { body: { bookId, dueDate, dueCleared, penaltyDays, dueClearedOn } } = req;
-            const invoice = await Invoice.create({
-                bookId,
-                userId: user.id,
-                dueDate: dueDate? new Date(dueDate): null,
-                dueCleared,
-                penaltyDays,
-                dueClearedOn: dueClearedOn? new Date(dueClearedOn): null
-            });
-            res.status(201).send(invoice)
+            const book = await Book.find({ id: bookId });
+            if (book) {
+                const invoice = await Invoice.create({
+                    BookId: bookId,
+                    UserId: user.id,
+                    dueDate: dueDate ?? new Date(new Date().getTime() + 30 * 3600 * 1000 * 24),
+                    dueCleared,
+                    penaltyDays,
+                    dueClearedOn: dueClearedOn ? new Date(dueClearedOn) : null
+                });
+                book.update({
+                    isRented: true
+                })
+                res.status(201).send(invoice)
+            }
+
         }
         catch (e) {
             console.log(e);
@@ -84,23 +91,70 @@ module.exports = {
 
     async update(req, res) {
         try {
-            const user = await userAuthFun(req,res);
+            const user = await userAuthFun(req, res);
             const invoiceCollection = await Invoice.find({
                 id: req.params.invoiceId
             });
 
             if (invoiceCollection) {
-                const { body: { bookId, userId, dueDate, dueCleared, penaltyDays, dueClearedOn } } = req;
+                const { body: { bookId, dueDate, dueCleared, penaltyDays, dueClearedOn } } = req;
                 const updatedInvoice = await invoiceCollection.update({
-                    bookId,
-                    userId,
-                    dueDate: new Date(dueDate),
+                    UserId: user.id,
+                    dueDate: dueDate ? new Date(dueDate) : null,
                     dueCleared,
                     penaltyDays,
-                    dueClearedOn: new Date(dueClearedOn)
+                    dueClearedOn: dueClearedOn ? new Date(dueClearedOn) : null
                 })
 
                 res.status(201).send(updatedInvoice);
+            }
+            else {
+                res.status(404).send("Invoice Not Found");
+            }
+
+        }
+        catch (e) {
+            console.log(e);
+            res.status(400).send(e);
+        }
+
+    },
+    async resolveDues(req, res) {
+        try {
+            const user = await userAuthFun(req, res);
+            const invoice = await Invoice.findOne({
+               where: {id: await req.params.invoiceId}
+            });
+            console.log({invoice, req: req.params})
+            if (invoice) {
+                if(invoice.dueCleared === true){
+                    res.status(200).send("Due already cleared!");
+                    return;
+                }
+                const currDate = new Date();
+                const Difference_In_Time = currDate.getTime() - invoice.dueDate.getTime();
+
+                const book = await Book.find({ BookId: invoice.BookId })
+                const userObj = await User.find({ id: user.id })
+                const Difference_In_Days = Math.ceil(Difference_In_Time / (1000 * 3600 * 24));
+                if (book) {
+                    const bookRent = book.rent + (Difference_In_Days > 0 ? Difference_In_Days : 0) * 10
+                    console.log({ Difference_In_Days, Difference_In_Time })
+
+                    const updatedInvoice = await invoice.update({
+                        dueCleared: true,
+                        penaltyDays: Difference_In_Days > 0 ? Difference_In_Days : 0,
+                        dueClearedOn: currDate,
+                        rent: bookRent
+                    })
+                    await book.update({
+                        isRented: false
+                    });
+                    await userObj.update({
+                        freezed: false
+                    });
+                    res.status(201).send(updatedInvoice);
+                }
             }
             else {
                 res.status(404).send("Invoice Not Found");

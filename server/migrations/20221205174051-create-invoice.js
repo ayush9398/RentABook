@@ -35,10 +35,10 @@ module.exports = {
           allowNull: false,
           type: Sequelize.DATE
         },
-        bookId: {
+        BookId: {
           type: Sequelize.INTEGER
         },
-        userId: {
+        UserId: {
           type: Sequelize.INTEGER
         }
       });

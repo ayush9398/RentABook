@@ -1,4 +1,6 @@
+const sequelize = require("sequelize");
 const Book = require('../models').Book;
+const Invoice = require('../models').Invoice;
 const User = require('../models').User;
 const userAuthFun = require('../controller/user').main;
 
@@ -68,13 +70,19 @@ module.exports = {
             if (userAuth) {
                 const bookCollection = await Book.findAll({
                     attributes: {
-                        include: [[Sequelize.fn("COUNT", Sequelize.col("invoice.id")), "invoiceCount"]]
+                      include: [
+                        [sequelize.fn('COUNT', sequelize.col('Invoices.id')), 'count']
+                      ]
                     },
                     include: [{
-                        model: Invoice, attributes: []
-                    }]
-
-                });
+                      attributes: [],
+                      model:Invoice,
+                      duplicating: false,
+                      required: false
+                    }],
+                    group: ['Book.id'],
+                    order: sequelize.literal('count DESC')
+                  });
                 console.log(bookCollection);
 
                 res.status(201).send(bookCollection);
@@ -95,8 +103,14 @@ module.exports = {
             const userAuth = await userAuthFun(req, res);
 
             if (userAuth) {
-                const bookCollection = await Book.find({
-                    userId: userAuth.id
+                const invoices = await Invoice.findAll({
+                    where: {
+                        UserId: userAuth.id
+                    }
+
+                });
+                const bookCollection = await Book.findAll({
+                    where: { id: {[sequelize.Op.or]: invoices.map(i => i.BookId)} }
                 })
 
                 res.status(201).send(bookCollection);
