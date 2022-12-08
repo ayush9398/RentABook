@@ -1,10 +1,6 @@
-## Building REST API in Node/Express App using Sequelize,Postgres
+## RentABook
 
-This Repository is building REST API Design in Node/Express App using Sequelize and Postgres.
-
-### PreRequisites
-- [Postgres](https://www.postgresql.org/download/)
-- [Node](https://nodejs.org/en/download/)
+This is nodeJS backend for renting book platform.
 
 ### Setup
 ```
